@@ -13,7 +13,7 @@ internal static class LegacyBackup
     {
         var mapping = ReadMapping(directory);
         if (string.IsNullOrWhiteSpace(mapping.Name))
-            throw new IOException("In mapping.yaml fehlt der Spielname.");
+            throw new IOException(L.T("The game name is missing from mapping.yaml.", "In mapping.yaml fehlt der Spielname."));
         foreach (var full in mapping.Backups)
         {
             if (IsZip(full.Name))
@@ -28,7 +28,7 @@ internal static class LegacyBackup
         var mapping = ReadMapping(version.Directory);
         var full = mapping.Backups.FirstOrDefault(full => full.Name == version.Name ||
             full.Children.Any(diff => diff.Name == version.Name))
-            ?? throw new IOException("Die gewählte Version fehlt in mapping.yaml.");
+            ?? throw new IOException(L.T("The selected version is missing from mapping.yaml.", "Die gewählte Version fehlt in mapping.yaml."));
         var diff = full.Children.FirstOrDefault(diff => diff.Name == version.Name);
         var records = new Dictionary<string, (LegacyFile File, string Archive)>(StringComparer.OrdinalIgnoreCase);
         foreach (var (path, file) in full.Files)
@@ -48,7 +48,7 @@ internal static class LegacyBackup
             var drive = mapping.Drives.FirstOrDefault(drive =>
                 string.Equals(CanonicalDrive(drive.Value), CanonicalDrive(root), StringComparison.OrdinalIgnoreCase));
             if (string.IsNullOrEmpty(drive.Key))
-                throw new IOException($"In mapping.yaml fehlt die Laufwerkszuordnung für {pair.Key}.");
+                throw new IOException(L.T($"The drive mapping for {pair.Key} is missing from mapping.yaml.", $"In mapping.yaml fehlt die Laufwerkszuordnung für {pair.Key}."));
             var entry = $"{drive.Key}/{target[root.Length..].Replace('\\', '/')}";
             var (file, archive) = pair.Value;
             return new RestoreFile(target, null,
@@ -73,7 +73,7 @@ internal static class LegacyBackup
     private static LegacyMapping ReadMapping(string directory)
     {
         using var source = File.OpenText(Path.Combine(directory, "mapping.yaml"));
-        return Yaml.Deserialize<LegacyMapping>(source) ?? throw new IOException("mapping.yaml ist leer.");
+        return Yaml.Deserialize<LegacyMapping>(source) ?? throw new IOException(L.T("mapping.yaml is empty.", "mapping.yaml ist leer."));
     }
 
     private sealed class LegacyMapping

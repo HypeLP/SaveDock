@@ -1,25 +1,33 @@
 # SaveDock
 
-SaveDock sucht, sichert und lädt lokale Spielstände unter Windows. Die Windows-x64-Version unter `dist\SaveDock.exe` enthält die Laufzeit und den Spielekatalog. Suche und Sicherung funktionieren offline.
+SaveDock finds, backs up, and restores local PC game saves on Windows. The self-contained Windows x64 build at `dist\SaveDock.exe` includes the .NET runtime and an offline game catalog.
 
-## Bedienung
+## Getting started
 
-1. Beim Start sucht SaveDock nach installierten Spielen und bekannten Spielstandpfaden. Wähle einen Speicherort. SaveDock verwendet darin den Ordner `SaveDock Backups`.
-2. Wähle die **Sicherungsart** und klicke **Backup** für ein Spiel oder **Alle sichern**. **Automatisch** erstellt eine Vollsicherung, dann bis zu fünf Differenzsicherungen und danach wieder eine Vollsicherung. **Vollsicherung** erstellt eine eigenständige ZIP. **Differenzsicherung** speichert Änderungen seit der letzten Vollsicherung und legt bei Bedarf zuerst eine Vollsicherung an.
-3. **Laden** öffnet die Versionen eines Spiels. Wähle den gewünschten Sicherungszeitpunkt, prüfe die Zielpfade und schließe das Spiel vor der Bestätigung.
-4. Über **Spiel hinzufügen** kannst du Dateien und Ordner sowie optional eine Spiel-EXE oder ein Icon auswählen. Bei einem bekannten Spielnamen ergänzen die eigenen Pfade den Spieleintrag.
+1. Start SaveDock and choose a backup destination. SaveDock uses a `SaveDock Backups` folder inside that destination.
+2. Choose **Backup mode**, then select **Backup** next to a game or **Back up all**.
+3. Select **Restore** next to a game, choose a version, and review its destination paths. Close the game before confirming.
+4. Select **Undo restore** next to the game to recover the state immediately before the last successful restore. Undo also removes files that the restore created. The local undo snapshot survives an app restart and is consumed after a successful undo.
 
-SaveDock liest lokale Installationsdaten von Steam, Epic Games, GOG, Ubisoft Connect, EA app, Battle.net und Xbox (PC-Spielinstallationen mit MicrosoftGame.config). Du kannst nach einem Launcher filtern. Erkannte Installationen bleiben auch ohne bekannten Speicherpfad sichtbar. Wähle das Spiel aus und nutze **Spielstandpfad hinzufügen**, um einen Pfad zu ergänzen.
+SaveDock reads local installation data from Steam, Epic Games, GOG, Ubisoft Connect, EA app, Battle.net, and Xbox PC games with a MicrosoftGame.config file. Filter the list by game or launcher. If the catalog is missing a save path, select a game and choose **Add save path**. Use **Add game** to add custom files or folders and optionally choose an icon or a game executable.
 
-## Aufbewahrung und Geschwindigkeit
+To exclude a game from backups, select it and choose **Hide game**. Enable **Show hidden games** to see it again and choose **Unhide game** to resume backups. Existing versions remain available for restore.
 
-Unter **Einstellungen** wählst du die ZIP-Kompression, die Änderungsprüfung und die Aufbewahrung pro Spiel. **Schnell** ist die Standardkompression. Bei der optionalen Schnellprüfung liest SaveDock Dateien mit identischer Größe sowie identischem Erstellungs- und Änderungszeitpunkt seit dem letzten Backup nicht erneut. **Dateiinhalt prüfen** ist die Standardeinstellung und erkennt auch Änderungen bei identischen Dateidaten.
+## Settings
 
-**Standardverlauf** behält bis zu drei Vollsicherungen mit jeweils fünf Differenzsicherungen. **Nur neueste Version** behält eine eigenständige ZIP pro Spiel. **Letzte X Versionen** behält X auswählbare Stände, soweit sie existieren. Die für einen dieser Stände nötige Vollsicherung kann als zusätzliche ZIP erhalten bleiben. Die Aufbewahrung wird beim nächsten erfolgreichen Backup des jeweiligen Spiels angewendet.
+**Language** switches the interface between English and German. English is the default.
 
-Jede native Sicherung liegt als datierte ZIP unter `SaveDock Backups\SaveDock\<Spiel>-<ID>`. Die Datei `index.json` enthält die Dateipfade, Prüfsummen und Zuordnungen der Versionen. Beim Laden wählst du einen Sicherungszeitpunkt. SaveDock liest bei einer Differenzversion die zugehörige Vollsicherung mit. Die Aufbewahrungseinstellungen beziehen sich auf native SaveDock-Sicherungen. ZIPs aus dem ersten Prototyp mit `mapping.yaml` bleiben separat im Verlauf.
+**Automatic** backup mode creates a full ZIP, then up to five differential backups before creating another full ZIP. **Full backup** creates a standalone ZIP. **Differential backup** saves changes relative to the latest full backup and starts with a full backup when required.
 
-Sicherungen aus dem ersten Prototyp bleiben im bisherigen Format mit `mapping.yaml` lesbar. Alte ZIPs mit Voll- oder Differenzsicherungen und den üblichen Windows-Registry-Werten stehen in derselben Versionsauswahl. Alte Sicherungen verwenden die ursprünglichen absoluten Dateipfade. Bei neuen Sicherungen werden bekannte Benutzerordner auf den aktuellen Windows-Benutzer aufgelöst. Die erste neue Sicherung pro Spiel ist eine Vollsicherung.
+**ZIP compression** supports Fast, Compact, and No compression. **Check file contents** is the default change detection mode. The optional metadata check compares file size and timestamps and can miss changes when those values stay the same.
+
+- **Standard history** keeps up to three full backups, each with up to five differential backups.
+- **Keep latest version only** retains one standalone ZIP per game.
+- **Keep last X versions** limits the restore list. A full ZIP required by a retained differential version may also remain on disk.
+
+Retention applies on the next successful backup of the game. SaveDock stores dated ZIPs and an `index.json` under `SaveDock Backups\SaveDock\<game>-<id>\`. The index records file paths, checksums, and version relationships. Undo snapshots are stored separately under `%LOCALAPPDATA%\SaveDock\Undo`.
+
+Backups from the first prototype with `mapping.yaml` remain readable and keep their original absolute paths. They are outside the new retention rules. For new backups, paths under recognized Windows user folders are resolved for the current user.
 
 ## Build
 
@@ -28,4 +36,4 @@ dotnet run --project .\SaveDock.csproj
 dotnet publish .\SaveDock.csproj -c Release -r win-x64 --self-contained true -o .\dist
 ```
 
-Der mitgelieferte [Katalog-Snapshot](https://github.com/mtkennerly/ludusavi-manifest/tree/ff0faa56840b0081c11a5b2c28f44bd478b29faf) stammt aus dem Ludusavi-Manifest. Die Lizenz liegt in `Catalog`. `Catalog/build-catalog.py` kann aus einer Manifest-YAML einen neuen Windows-Katalog erzeugen und verwendet dafür PyYAML.
+The bundled [catalog snapshot](https://github.com/mtkennerly/ludusavi-manifest/tree/ff0faa56840b0081c11a5b2c28f44bd478b29faf) comes from the Ludusavi Manifest. Its license is in `Catalog`. The optional `Catalog/build-catalog.py` script uses PyYAML to rebuild the catalog from a manifest YAML file.

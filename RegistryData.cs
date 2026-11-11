@@ -30,7 +30,7 @@ internal static partial class RegistryData
         foreach (var path in paths)
         {
             if (!TrySplit(path, out var root, out var subkey))
-                throw new IOException($"Nicht unterstützter Registry-Pfad: {path}");
+                throw new IOException(L.T($"Unsupported registry path: {path}", $"Nicht unterstützter Registry-Pfad: {path}"));
             using var key = root.OpenSubKey(subkey);
             if (key is not null)
                 CaptureKey(key, keys);
@@ -67,7 +67,7 @@ internal static partial class RegistryData
         long number => number.ToString(CultureInfo.InvariantCulture),
         byte[] bytes => Convert.ToBase64String(bytes),
         string[] strings => JsonSerializer.Serialize(strings),
-        _ => throw new IOException("Ein Registry-Wert hat einen unbekannten Datentyp.")
+        _ => throw new IOException(L.T("A registry value has an unknown data type.", "Ein Registry-Wert hat einen unbekannten Datentyp."))
     };
 
     private static object Decode(RegistryValueData value) => value.Kind switch
@@ -77,44 +77,122 @@ internal static partial class RegistryData
         RegistryValueKind.QWord => long.Parse(value.Data, CultureInfo.InvariantCulture),
         RegistryValueKind.Binary or RegistryValueKind.None => Convert.FromBase64String(value.Data),
         RegistryValueKind.MultiString => JsonSerializer.Deserialize<string[]>(value.Data) ?? [],
-        _ => throw new IOException($"Nicht unterstützter Registry-Datentyp: {value.Kind}")
+        _ => throw new IOException(L.T($"Unsupported registry value type: {value.Kind}", $"Nicht unterstützter Registry-Datentyp: {value.Kind}"))
     };
 
-    public static void Apply(IEnumerable<RegistryKeyData> keys, Stack<Action> undo)
+    public static RegistryBeforeLoad Apply(IEnumerable<RegistryKeyData> keys, Stack<Action> rollback)
     {
+        var values = new List<RegistryBeforeValue>();
+        var newKeys = new List<string>();
         foreach (var entry in keys)
         {
             if (!TrySplit(entry.Path, out var root, out var path))
-                throw new IOException($"Nicht unterstützter Registry-Pfad: {entry.Path}");
+                throw new IOException(L.T($"Unsupported registry path: {entry.Path}", $"Nicht unterstützter Registry-Pfad: {entry.Path}"));
 
-            using var previousKey = root.OpenSubKey(path);
-            using var key = root.CreateSubKey(path, writable: true)
-                ?? throw new IOException($"Registry-Schlüssel konnte nicht geöffnet werden: {entry.Path}");
-            if (previousKey is null)
-                undo.Push(() =>
-                {
-                    using var created = root.OpenSubKey(path);
-                    if (created is { ValueCount: 0, SubKeyCount: 0 })
-                        root.DeleteSubKey(path, throwOnMissingSubKey: false);
-                });
+            using var key = OpenOrCreate(root, path, rollback, newKeys);
 
             foreach (var value in entry.Values)
             {
-                var old = key.GetValue(value.Name, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
-                var kind = old is null ? RegistryValueKind.Unknown : key.GetValueKind(value.Name);
-                var data = Decode(value);
-                key.SetValue(value.Name, data, value.Kind);
-                undo.Push(() =>
-                {
-                    using var changed = root.OpenSubKey(path, writable: true)
-                        ?? throw new IOException($"Registry-Schlüssel fehlt: {entry.Path}");
-                    if (old is null)
-                        changed.DeleteValue(value.Name, throwOnMissingValue: false);
-                    else
-                        changed.SetValue(value.Name, old, kind);
-                });
+                var previous = ReadCurrent(key, value.Name);
+                ChangeValue(key, value.Name, value);
+                RegisterValueRollback(rollback, root, path, value.Name, previous);
+                values.Add(new RegistryBeforeValue(key.Name, value.Name, previous));
             }
         }
+        return new RegistryBeforeLoad(values.ToArray(), newKeys.ToArray());
+    }
+
+    public static void ApplyBeforeLoad(RegistryBeforeLoad state, Stack<Action> rollback)
+    {
+        foreach (var value in state.Values.Reverse())
+        {
+            if (!TrySplit(value.Path, out var root, out var path))
+                throw new IOException(L.T($"Unsupported registry path: {value.Path}", $"Nicht unterstützter Registry-Pfad: {value.Path}"));
+
+            using var key = value.Previous is null ? root.OpenSubKey(path, writable: true) : OpenOrCreate(root, path, rollback);
+            if (key is null)
+                continue;
+
+            var current = ReadCurrent(key, value.Name);
+            ChangeValue(key, value.Name, value.Previous);
+            RegisterValueRollback(rollback, root, path, value.Name, current);
+        }
+
+        foreach (var created in state.CreatedKeys.Reverse())
+        {
+            if (!TrySplit(created, out var root, out var path))
+                throw new IOException(L.T($"Unsupported registry path: {created}", $"Nicht unterstützter Registry-Pfad: {created}"));
+            if (RemoveEmptyKey(root, path))
+                rollback.Push(() => root.CreateSubKey(path, writable: true)?.Dispose());
+        }
+    }
+
+    private static RegistryKey OpenOrCreate(RegistryKey root, string path, Stack<Action> rollback, List<string>? newKeys = null)
+    {
+        var missing = new Stack<string>();
+        for (var candidate = path; candidate.StartsWith(@"Software\", StringComparison.OrdinalIgnoreCase);
+             candidate = candidate[..candidate.LastIndexOf('\\')])
+        {
+            using var found = root.OpenSubKey(candidate);
+            if (found is not null)
+                break;
+            missing.Push(candidate);
+        }
+
+        // Register the possible newly created parents before touching the registry.
+        foreach (var created in missing)
+        {
+            rollback.Push(() => RemoveEmptyKey(root, created));
+            newKeys?.Add(root.Name + "\\" + created);
+        }
+        return root.CreateSubKey(path, writable: true)
+            ?? throw new IOException(L.T($"Could not open registry key: {root.Name}\\{path}", $"Registry-Schlüssel konnte nicht geöffnet werden: {root.Name}\\{path}"));
+    }
+
+    private static bool RemoveEmptyKey(RegistryKey root, string path)
+    {
+        using (var key = root.OpenSubKey(path))
+            if (key is not { ValueCount: 0, SubKeyCount: 0 })
+                return false;
+
+        root.DeleteSubKey(path, throwOnMissingSubKey: false);
+        return true;
+    }
+
+    private static RegistryValueData? ReadCurrent(RegistryKey key, string name)
+    {
+        var raw = key.GetValue(name, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+        if (raw is not null)
+            return new RegistryValueData(name, key.GetValueKind(name), Encode(raw));
+        if (key.GetValueNames().Contains(name, StringComparer.OrdinalIgnoreCase))
+            throw new IOException(L.T($"Could not back up an existing registry value: {key.Name}\\{name}", $"Ein vorhandener Registry-Wert kann nicht gesichert werden: {key.Name}\\{name}"));
+        return null;
+    }
+
+    private static void ChangeValue(RegistryKey key, string name, RegistryValueData? value)
+    {
+        if (value is null)
+            key.DeleteValue(name, throwOnMissingValue: false);
+        else
+            key.SetValue(name, Decode(value), value.Kind);
+    }
+
+    private static void RegisterValueRollback(Stack<Action> rollback, RegistryKey root, string path, string name,
+        RegistryValueData? previous) => rollback.Push(() =>
+    {
+        using var key = root.OpenSubKey(path, writable: true)
+            ?? throw new IOException(L.T($"Registry key is missing: {root.Name}\\{path}", $"Registry-Schlüssel fehlt: {root.Name}\\{path}"));
+        ChangeValue(key, name, previous);
+    });
+
+    public static void ValidateBeforeLoad(RegistryBeforeLoad state)
+    {
+        foreach (var path in state.Values.Select(value => value.Path).Concat(state.CreatedKeys))
+            if (!TrySplit(path, out _, out _))
+                throw new IOException(L.T($"Unsupported registry path: {path}", $"Nicht unterstützter Registry-Pfad: {path}"));
+        foreach (var value in state.Values)
+            if (value.Previous is not null)
+                _ = Decode(value.Previous);
     }
 
     public static void Validate(IEnumerable<RegistryKeyData> keys)
@@ -122,7 +200,7 @@ internal static partial class RegistryData
         foreach (var key in keys)
         {
             if (!TrySplit(key.Path, out _, out _))
-                throw new IOException($"Nicht unterstützter Registry-Pfad: {key.Path}");
+                throw new IOException(L.T($"Unsupported registry path: {key.Path}", $"Nicht unterstützter Registry-Pfad: {key.Path}"));
             foreach (var value in key.Values)
                 _ = Decode(value);
         }
@@ -150,13 +228,13 @@ internal static partial class RegistryData
 
             while (line.EndsWith('\\'))
             {
-                var next = reader.ReadLine() ?? throw new IOException("Unvollständige Zeile in registry.reg.");
+                var next = reader.ReadLine() ?? throw new IOException(L.T("An incomplete line was found in registry.reg.", "Unvollständige Zeile in registry.reg."));
                 line = line[..^1] + next.Trim();
             }
 
             var match = RegValue().Match(line);
             if (key is null || !match.Success)
-                throw new IOException("Ein Eintrag in registry.reg konnte nicht gelesen werden.");
+                throw new IOException(L.T("An entry in registry.reg could not be read.", "Ein Eintrag in registry.reg konnte nicht gelesen werden."));
             var name = match.Groups[2].Success ? Unescape(match.Groups[2].Value) : "";
             values.Add(ReadValue(name, match.Groups[3].Value));
         }
@@ -178,7 +256,7 @@ internal static partial class RegistryData
 
         var colon = value.IndexOf(':');
         if (colon < 0 || !value.StartsWith("hex", StringComparison.OrdinalIgnoreCase))
-            throw new IOException($"Nicht unterstützter Registry-Wert: {name}");
+            throw new IOException(L.T($"Unsupported registry value: {name}", $"Nicht unterstützter Registry-Wert: {name}"));
 
         var type = value[..colon].ToLowerInvariant();
         var bytes = Convert.FromHexString(value[(colon + 1)..].Replace(",", "").Replace(" ", "").Replace("\t", ""));
@@ -193,7 +271,7 @@ internal static partial class RegistryData
             "hex(7)" => (RegistryValueKind.MultiString, Encoding.Unicode.GetString(bytes).TrimEnd('\0')
                 .Split('\0', StringSplitOptions.None)),
             "hex(b)" => (RegistryValueKind.QWord, BinaryPrimitives.ReadInt64LittleEndian(bytes)),
-            _ => throw new IOException($"Nicht unterstützter Registry-Datentyp: {type}")
+            _ => throw new IOException(L.T($"Unsupported registry value type: {type}", $"Nicht unterstützter Registry-Datentyp: {type}"))
         };
         return new RegistryValueData(name, kind, Encode(decoded));
     }
@@ -221,3 +299,8 @@ internal static partial class RegistryData
 
 internal sealed record RegistryKeyData(string Path, RegistryValueData[] Values);
 internal sealed record RegistryValueData(string Name, RegistryValueKind Kind, string Data);
+internal sealed record RegistryBeforeValue(string Path, string Name, RegistryValueData? Previous);
+internal sealed record RegistryBeforeLoad(RegistryBeforeValue[] Values, string[] CreatedKeys)
+{
+    public static RegistryBeforeLoad Empty => new([], []);
+}

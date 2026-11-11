@@ -24,6 +24,6 @@ internal static class SizeText
             unit++;
         }
 
-        return $"{size:0.#} {units[unit]}";
+        return $"{size.ToString("0.#", L.Culture)} {units[unit]}";
     }
 }

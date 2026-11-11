@@ -87,10 +87,10 @@
         <TextBlock Text="SaveDock" FontWeight="Bold" FontSize="19" VerticalAlignment="Center" />
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-        <Button x:Name="SettingsButton" Classes="action" Click="SettingsClicked" Content="Einstellungen" />
-        <Button x:Name="ScanButton" Classes="action" Click="ScanClicked" Content="Erneut suchen" />
+        <Button x:Name="SettingsButton" Classes="action" Click="SettingsClicked" Content="{DynamicResource SettingsText}" />
+        <Button x:Name="ScanButton" Classes="action" Click="ScanClicked" Content="{DynamicResource RescanText}" />
         <Button x:Name="BackupButton" Classes="action primary" Click="BackupClicked"
-                Content="Alle sichern" IsEnabled="False" />
+                Content="{DynamicResource BackupAllText}" IsEnabled="False" />
       </StackPanel>
     </Grid>
 
@@ -103,22 +103,22 @@
       </Border.Background>
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Spacing="4" VerticalAlignment="Center">
-          <TextBlock Text="Deine Spielstände" FontSize="28" FontWeight="Bold" />
-          <TextBlock x:Name="OverviewText" Text="Lokale Spielstände werden gesucht." Classes="muted"
+          <TextBlock Text="{DynamicResource OverviewTitle}" FontSize="28" FontWeight="Bold" />
+          <TextBlock x:Name="OverviewText" Text="{DynamicResource ScanningText}" Classes="muted"
                      TextWrapping="Wrap" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="22" VerticalAlignment="Center" Margin="12,0,0,0">
           <StackPanel MinWidth="55" Spacing="2">
             <TextBlock x:Name="GameCount" Text="–" FontWeight="SemiBold" FontSize="22" />
-            <TextBlock Text="Spiele" Classes="caption" />
+            <TextBlock Text="{DynamicResource GamesText}" Classes="caption" />
           </StackPanel>
           <StackPanel MinWidth="64" Spacing="2">
             <TextBlock x:Name="EntryCount" Text="–" FontWeight="SemiBold" FontSize="22" />
-            <TextBlock Text="Einträge" Classes="caption" />
+            <TextBlock Text="{DynamicResource EntriesText}" Classes="caption" />
           </StackPanel>
           <StackPanel MinWidth="72" Spacing="2">
             <TextBlock x:Name="TotalSize" Text="–" FontWeight="SemiBold" FontSize="22" />
-            <TextBlock Text="Dateigröße" Classes="caption" />
+            <TextBlock Text="{DynamicResource SizeLabel}" Classes="caption" />
           </StackPanel>
         </StackPanel>
       </Grid>
@@ -126,19 +126,19 @@
 
     <Grid Grid.Row="2" ColumnDefinitions="*,16,295">
       <Border Classes="panel">
-        <Grid RowDefinitions="Auto,Auto,*">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
           <Grid ColumnDefinitions="*,150,Auto" ColumnSpacing="8" Margin="15,13">
-            <TextBlock Text="Gefundene Spiele" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBox x:Name="SearchBox" Grid.Column="1" PlaceholderText="Spiel oder Launcher" TextChanged="SearchChanged"
-                     AutomationProperties.Name="Nach Spiel oder Launcher filtern" Background="#121723" BorderBrush="{StaticResource Line}"
+            <TextBlock Text="{DynamicResource GameListText}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBox x:Name="SearchBox" Grid.Column="1" PlaceholderText="{DynamicResource GameFilterText}" TextChanged="SearchChanged"
+                     AutomationProperties.Name="{DynamicResource GameFilterName}" Background="#121723" BorderBrush="{StaticResource Line}"
                      Foreground="#EDF1FA" PlaceholderForeground="{StaticResource Muted}" CornerRadius="7" Padding="9,6" />
-            <Button x:Name="AddGameButton" Grid.Column="2" Classes="action compact" Content="+ Spiel hinzufügen"
+            <Button x:Name="AddGameButton" Grid.Column="2" Classes="action compact" Content="{DynamicResource AddGameText}"
                     Click="AddGameClicked" />
           </Grid>
           <Border Grid.Row="1" Background="{StaticResource Line}" Height="1" />
           <Grid Grid.Row="2">
             <ListBox x:Name="GameList" Classes="gameList" SelectionChanged="GameSelected"
-                     AutomationProperties.Name="Gefundene Spiele">
+                     AutomationProperties.Name="{DynamicResource GameListText}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="local:GameRow">
                   <Grid ColumnDefinitions="38,*,Auto,Auto,Auto" ColumnSpacing="8">
@@ -156,46 +156,55 @@
                       <TextBlock Text="{Binding EntrySummary}" Classes="caption" TextTrimming="CharacterEllipsis"
                                  ToolTip.Tip="{Binding EntrySummary}" />
                     </StackPanel>
-                    <Button Grid.Column="2" Classes="action compact" Content="Backup" IsEnabled="{Binding CanBackup}"
+                    <Button Grid.Column="2" Classes="action compact" Content="{DynamicResource BackupText}" IsEnabled="{Binding CanBackup}"
                             Click="GameBackupClicked" />
-                    <Button Grid.Column="3" Classes="action compact" Content="Laden" IsEnabled="{Binding CanLoad}"
+                    <Button Grid.Column="3" Classes="action compact" Content="{DynamicResource LoadText}" IsEnabled="{Binding CanLoad}"
                             Click="GameLoadClicked" />
+                    <Button Grid.Column="4" Classes="action compact" Content="{DynamicResource UndoText}" IsVisible="{Binding CanRevert}"
+                            ToolTip.Tip="{DynamicResource UndoTip}" Click="GameRevertClicked" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
             <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7"
                         IsHitTestVisible="False" Margin="20">
-              <TextBlock x:Name="EmptyTitle" Text="Spielstände werden gesucht" FontWeight="SemiBold" FontSize="16"
+              <TextBlock x:Name="EmptyTitle" Text="{DynamicResource ScanningText}" FontWeight="SemiBold" FontSize="16"
                          TextAlignment="Center" TextWrapping="Wrap" />
-              <TextBlock x:Name="EmptyMessage" Text="Der erste Scan kann einen Moment dauern."
+              <TextBlock x:Name="EmptyMessage" Text="{DynamicResource InitialScanText}"
                          Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
             </StackPanel>
           </Grid>
+          <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{StaticResource Line}" Padding="14,4">
+            <CheckBox x:Name="ShowHiddenBox" IsCheckedChanged="HiddenFilterChanged" />
+          </Border>
         </Grid>
       </Border>
 
       <Grid Grid.Column="2" RowDefinitions="Auto,12,*">
         <Border Classes="panel" Padding="14">
           <StackPanel Spacing="8">
-            <TextBlock Text="Sicherungsziel" FontSize="15" FontWeight="SemiBold" />
-            <TextBlock x:Name="TargetText" Text="Noch kein Ordner ausgewählt" Classes="muted"
+            <TextBlock Text="{DynamicResource DestinationText}" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock x:Name="TargetText" Classes="muted"
                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Text, ElementName=TargetText}" />
-            <Button x:Name="TargetButton" Classes="action" Click="TargetClicked" Content="Ordner auswählen"
+            <Button x:Name="TargetButton" Classes="action" Click="TargetClicked" Content="{DynamicResource SelectFolderText}"
                     HorizontalAlignment="Stretch" />
-            <TextBlock Text="Sicherungsart" Classes="caption" Margin="0,3,0,0" />
+            <TextBlock Text="{DynamicResource BackupModeText}" Classes="caption" Margin="0,3,0,0" />
             <ComboBox x:Name="BackupModeBox" HorizontalAlignment="Stretch"
-                      AutomationProperties.Name="Sicherungsart" SelectionChanged="BackupModeChanged" />
+                      AutomationProperties.Name="{DynamicResource BackupModeText}" SelectionChanged="BackupModeChanged" />
           </StackPanel>
         </Border>
 
         <Border Grid.Row="2" Classes="panel" Padding="14">
           <Grid RowDefinitions="Auto,Auto,Auto,*">
-            <TextBlock Text="Spielstandpfade" FontSize="15" FontWeight="SemiBold" />
-            <TextBlock x:Name="DetailTitle" Grid.Row="1" Text="Wähle ein Spiel aus." Classes="muted"
+            <TextBlock Text="{DynamicResource SavePathsText}" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock x:Name="DetailTitle" Grid.Row="1" Classes="muted"
                        Margin="0,5,0,8" TextTrimming="CharacterEllipsis" />
-            <Button x:Name="EditGameButton" Grid.Row="2" Classes="action compact" Content="Eigene Pfade bearbeiten"
-                    IsVisible="False" Click="EditGameClicked" Margin="0,0,0,8" />
+            <StackPanel Grid.Row="2" Spacing="6" Margin="0,0,0,8">
+              <Button x:Name="EditGameButton" Classes="action compact"
+                      IsVisible="False" Click="EditGameClicked" />
+              <Button x:Name="HideGameButton" Classes="action compact"
+                      IsVisible="False" Click="HideGameClicked" />
+            </StackPanel>
             <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl x:Name="DetailList">
                 <ItemsControl.ItemTemplate>
@@ -220,7 +229,7 @@
       <ProgressBar x:Name="Activity" IsIndeterminate="True" Height="3" IsVisible="False"
                    Foreground="{StaticResource Accent}" />
       <TextBlock x:Name="StatusText" Grid.Row="1" Classes="caption" Margin="0,6,0,0"
-                 Text="Bereit" TextTrimming="CharacterEllipsis"
+                 Text="{DynamicResource ReadyText}" TextTrimming="CharacterEllipsis"
                  ToolTip.Tip="{Binding Text, ElementName=StatusText}" />
     </Grid>
   </Grid>

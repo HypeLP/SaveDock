@@ -4,7 +4,8 @@ namespace SaveDock;
 
 internal sealed record CustomGame(string Name, string[] Paths, string? IconPath);
 
-internal sealed record UserSettings(string? Destination, CustomGame[]? CustomGames = null, BackupOptions? Backup = null)
+internal sealed record UserSettings(string? Destination, CustomGame[]? CustomGames = null, BackupOptions? Backup = null,
+    AppLanguage Language = AppLanguage.English, string[]? HiddenGames = null)
 {
     public BackupOptions BackupPreferences() => (Backup ?? new BackupOptions()).Normalize();
 
@@ -18,9 +19,11 @@ internal sealed record UserSettings(string? Destination, CustomGame[]? CustomGam
         if (settings is null)
             return new UserSettings(Destination: null);
 
-        return settings.Destination is string destination && !Path.IsPathFullyQualified(destination)
-            ? settings with { Destination = null }
-            : settings;
+        return settings with
+        {
+            Destination = settings.Destination is string destination && Path.IsPathFullyQualified(destination) ? destination : null,
+            Language = Enum.IsDefined(settings.Language) ? settings.Language : AppLanguage.English
+        };
     }
 
     public void Save(string directory)

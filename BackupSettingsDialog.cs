@@ -1,12 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using static SaveDock.L;
 
 namespace SaveDock;
 
 internal sealed class BackupSettingsDialog : GameDialog
 {
     private readonly BackupOptions original;
+    private readonly ComboBox language;
     private readonly ComboBox compression;
     private readonly ComboBox retention;
     private readonly ComboBox check;
@@ -15,47 +17,56 @@ internal sealed class BackupSettingsDialog : GameDialog
     private readonly TextBlock retentionHint;
     private readonly TextBlock checkHint;
 
-    public BackupSettingsDialog(BackupOptions options) : base("Sicherungseinstellungen", 490)
+    public BackupSettingsDialog(BackupOptions options, AppLanguage selectedLanguage) : base(T("Settings", "Einstellungen"), 535)
     {
         original = options;
         var layout = new Grid { Margin = new Thickness(22), RowDefinitions = new("*,Auto"), RowSpacing = 14 };
         var content = new StackPanel { Spacing = 10 };
-        content.Children.Add(Text("Sicherungseinstellungen", heading: true));
+        content.Children.Add(Text(T("Settings", "Einstellungen"), heading: true));
+        var languageLabel = T("Language", "Sprache");
+        language = Picker(languageLabel, (int)selectedLanguage, "English", "Deutsch");
+        content.Children.Add(Field(languageLabel, language));
 
-        compression = Picker("ZIP-Kompression", (int)options.Compression, "Schnell", "Kompakt", "Ohne Kompression");
-        content.Children.Add(Field("ZIP-Kompression", compression));
+        var compressionLabel = T("ZIP compression", "ZIP-Kompression");
+        compression = Picker(compressionLabel, (int)options.Compression, T("Fast", "Schnell"),
+            T("Compact", "Kompakt"), T("No compression", "Ohne Kompression"));
+        content.Children.Add(Field(compressionLabel, compression));
 
-        check = Picker("Änderungsprüfung", (int)options.Check, "Dateiinhalt prüfen", "Schnellprüfung nach Dateidaten");
-        content.Children.Add(Field("Änderungsprüfung", check));
-        checkHint = Text("Die Schnellprüfung vergleicht Größe und Zeitstempel. Bei gleichen Werten können geänderte Inhalte unbemerkt bleiben.");
+        var checkLabel = T("Change detection", "Änderungsprüfung");
+        check = Picker(checkLabel, (int)options.Check, T("Check file contents", "Dateiinhalt prüfen"),
+            T("Quick check by file metadata", "Schnellprüfung nach Dateidaten"));
+        content.Children.Add(Field(checkLabel, check));
+        checkHint = Text(T("The quick check compares file size and timestamps. It can miss edits when those values stay the same.",
+            "Die Schnellprüfung vergleicht Größe und Zeitstempel. Bei gleichen Werten können geänderte Inhalte unbemerkt bleiben."));
         content.Children.Add(checkHint);
 
-        retention = Picker("Aufbewahrung pro Spiel", (int)options.Retention,
-            "Standardverlauf", "Nur neueste Version", "Letzte X Versionen");
-        content.Children.Add(Field("Aufbewahrung pro Spiel", retention));
+        var retentionLabel = T("Retention per game", "Aufbewahrung pro Spiel");
+        retention = Picker(retentionLabel, (int)options.Retention, T("Standard history", "Standardverlauf"),
+            T("Keep latest version only", "Nur neueste Version"), T("Keep last X versions", "Letzte X Versionen"));
+        content.Children.Add(Field(retentionLabel, retention));
         count = new NumericUpDown
         {
             Value = options.KeepVersions, Minimum = 2, Maximum = BackupOptions.MaxVersions, FormatString = "0",
             Increment = 1, HorizontalAlignment = HorizontalAlignment.Left, Width = 140
         };
-        count.SetValue(Avalonia.Automation.AutomationProperties.NameProperty, "Anzahl der Versionen pro Spiel");
-        countGroup = Field("Anzahl der Versionen", count);
+        count.SetValue(Avalonia.Automation.AutomationProperties.NameProperty, T("Number of versions per game", "Anzahl der Versionen pro Spiel"));
+        countGroup = Field(T("Number of versions", "Anzahl der Versionen"), count);
         content.Children.Add(countGroup);
         retentionHint = Text("");
         content.Children.Add(retentionHint);
         Add(layout, new ScrollViewer { Content = content }, 0);
 
-        var cancel = Action("Abbrechen");
+        var cancel = Action(T("Cancel", "Abbrechen"));
         cancel.IsCancel = true;
         cancel.Click += (_, _) => Close(null);
-        var save = Action("Speichern", primary: true);
-        save.Click += (_, _) => Close((original with
+        var save = Action(T("Save", "Speichern"), primary: true);
+        save.Click += (_, _) => Close(new SettingsSelection((original with
         {
             Compression = (ZipCompression)compression.SelectedIndex,
             Retention = (RetentionMode)retention.SelectedIndex,
             KeepVersions = (int)(count.Value ?? original.KeepVersions),
             Check = (FileCheckMode)check.SelectedIndex
-        }).Normalize());
+        }).Normalize(), language.SelectedIndex == (int)AppLanguage.German ? AppLanguage.German : AppLanguage.English));
         var buttons = Row(cancel, save);
         buttons.HorizontalAlignment = HorizontalAlignment.Right;
         Add(layout, buttons, 1);
@@ -73,9 +84,12 @@ internal sealed class BackupSettingsDialog : GameDialog
         checkHint.IsVisible = check.SelectedIndex == (int)FileCheckMode.Metadata;
         retentionHint.Text = selected switch
         {
-            RetentionMode.Latest => "Eine Vollsicherung pro Spiel. Ältere Versionen im SaveDock-Format werden beim nächsten erfolgreichen Backup entfernt. Sicherungen mit mapping.yaml bleiben erhalten.",
-            RetentionMode.Count => "Eine nötige Vollsicherung kann zusätzlich auf der Festplatte bleiben. Die Auswahl gilt ab dem nächsten erfolgreichen Backup. Sicherungen mit mapping.yaml bleiben erhalten.",
-            _ => "Bis zu drei Vollsicherungen mit je fünf Differenzsicherungen pro Spiel."
+            RetentionMode.Latest => T("Keep one full backup per game. The next successful backup removes older SaveDock versions. Backups with mapping.yaml are kept.",
+                "Eine Vollsicherung pro Spiel. Ältere Versionen im SaveDock-Format werden beim nächsten erfolgreichen Backup entfernt. Sicherungen mit mapping.yaml bleiben erhalten."),
+            RetentionMode.Count => T("A required full backup may also stay on disk. This setting takes effect on the next successful backup. Backups with mapping.yaml are kept.",
+                "Eine nötige Vollsicherung kann zusätzlich auf der Festplatte bleiben. Die Auswahl gilt ab dem nächsten erfolgreichen Backup. Sicherungen mit mapping.yaml bleiben erhalten."),
+            _ => T("Keep up to three full backups per game, each with up to five differential backups.",
+                "Bis zu drei Vollsicherungen mit je fünf Differenzsicherungen pro Spiel.")
         };
     }
 
@@ -94,3 +108,5 @@ internal sealed class BackupSettingsDialog : GameDialog
         return field;
     }
 }
+
+internal sealed record SettingsSelection(BackupOptions Backup, AppLanguage Language);

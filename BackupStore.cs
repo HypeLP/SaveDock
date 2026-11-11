@@ -42,12 +42,13 @@ internal sealed class BackupStore(string target)
         return new BackupHistory(groups, warnings);
     }
 
-    public bool Save(GameSave game, BackupOptions? preferences = null)
+    public bool Save(GameSave game, BackupOptions? preferences = null, UndoStore? undoStore = null)
     {
         if (game.Entries.Count == 0)
             return false;
 
         using var targetLock = OpenLock(create: true);
+        using var gameLock = undoStore?.Lock(game.Name);
         var directory = Path.Combine(NativeRoot, GameFolder(game.Name));
         Directory.CreateDirectory(directory);
         var index = ReadIndex(directory) ?? new BackupIndex(game.Name, []);
@@ -63,12 +64,12 @@ internal sealed class BackupStore(string target)
         var entries = game.Entries.Where(entry => !entry.IsRegistry).Select(entry =>
         {
             if (exclusion.Contains(entry.Path))
-                throw new IOException($"Der Spielstand befindet sich im Backup-Ordner: {entry.Path}");
+                throw new IOException(L.T($"The save file is inside the backup folder: {entry.Path}", $"Der Spielstand befindet sich im Backup-Ordner: {entry.Path}"));
             return StoredFile.From(entry.Path, known?.GetValueOrDefault(entry.Path));
         }).OrderBy(entry => entry.Path, PathComparer).ToArray();
         var registry = RegistryData.Capture(game.Entries.Where(entry => entry.IsRegistry).Select(entry => entry.Path));
         if (entries.Length == 0 && registry.Length == 0)
-            throw new IOException("Für dieses Spiel wurden keine lesbaren Spielstände gefunden.");
+            throw new IOException(L.T("No readable saves were found for this game.", "Für dieses Spiel wurden keine lesbaren Spielstände gefunden."));
 
         var registryBytes = registry.Length == 0 ? null : JsonSerializer.SerializeToUtf8Bytes(registry);
         var registryHash = registryBytes is null ? null : Convert.ToHexStringLower(SHA256.HashData(registryBytes));
@@ -108,7 +109,7 @@ internal sealed class BackupStore(string target)
                     using var source = StoredFile.OpenSource(file.Path);
                     using var destination = zip.CreateEntry(FileKey(file.Hash), options.ZipLevel).Open();
                     if (CopyAndHash(source, destination, HashAlgorithmName.SHA256) != file.Hash)
-                        throw new IOException($"Der Spielstand wurde während der Sicherung geändert: {file.Path}");
+                        throw new IOException(L.T($"The save file changed during backup: {file.Path}", $"Der Spielstand wurde während der Sicherung geändert: {file.Path}"));
                 }
                 if (registryBytes is not null && baseline?.RegistryHash != registryHash)
                 {
@@ -183,25 +184,26 @@ internal sealed class BackupStore(string target)
         var plan = version.Legacy ? LegacyBackup.Preview(version) : NativePreview(version);
         foreach (var file in plan.Files)
             if (SavePaths.IsWithin(file.Target, target))
-                throw new IOException($"Ein Zielpfad liegt im Backup-Ordner: {file.Target}");
+                throw new IOException(L.T($"A destination path is inside the backup folder: {file.Target}", $"Ein Zielpfad liegt im Backup-Ordner: {file.Target}"));
         return plan;
     }
 
-    public void Restore(BackupVersion version)
+    public void Restore(BackupVersion version, UndoStore? undoStore = null)
     {
         using var targetLock = OpenLock(create: false);
-        RestoreTransaction.Run(Preview(version));
+        using var gameLock = undoStore?.Lock(version.Game);
+        RestoreTransaction.Run(Preview(version), undoStore);
     }
 
     private RestorePlan NativePreview(BackupVersion version)
     {
-        var index = ReadIndex(version.Directory) ?? throw new IOException("Die Sicherung wurde verschoben.");
+        var index = ReadIndex(version.Directory) ?? throw new IOException(L.T("The backup was moved.", "Die Sicherung wurde verschoben."));
         var selected = index.Snapshots.SingleOrDefault(item => item.Name == version.Name)
-            ?? throw new IOException("Die Sicherung ist nicht mehr vorhanden.");
+            ?? throw new IOException(L.T("This backup version is no longer available.", "Die Sicherung ist nicht mehr vorhanden."));
         var baseline = selected.Base is null ? null : index.Snapshots.SingleOrDefault(item => item.Name == selected.Base)
-            ?? throw new IOException("Die zugehörige Vollsicherung fehlt.");
+            ?? throw new IOException(L.T("The required full backup is missing.", "Die zugehörige Vollsicherung fehlt."));
         if (!Exists(version.Directory, selected.Name) || baseline is not null && !Exists(version.Directory, baseline.Name))
-            throw new IOException("Ein ZIP-Archiv dieser Sicherung fehlt.");
+            throw new IOException(L.T("A ZIP archive required for this backup is missing.", "Ein ZIP-Archiv dieser Sicherung fehlt."));
         var baseHashes = baseline?.Files.Select(file => file.Hash).ToHashSet(StringComparer.Ordinal) ?? [];
         var archive = ArchivePath(version.Directory, selected.Name);
         var files = selected.Files.Select(file => new RestoreFile(file.GetTarget(), file.When,
@@ -216,7 +218,7 @@ internal sealed class BackupStore(string target)
     private FileStream OpenLock(bool create)
     {
         if (!Directory.Exists(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(target))))
-            throw new IOException("Der ausgewählte Speicherort ist nicht erreichbar.");
+            throw new IOException(L.T("The selected backup location is unavailable.", "Der ausgewählte Speicherort ist nicht erreichbar."));
         if (create)
             Directory.CreateDirectory(target);
         return File.Open(Path.Combine(target, ".savedock.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -226,7 +228,7 @@ internal sealed class BackupStore(string target)
     {
         if (string.IsNullOrWhiteSpace(name) || !name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
             name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            throw new IOException($"Ungültiger Archivname: {name}");
+            throw new IOException(L.T($"Invalid archive name: {name}", $"Ungültiger Archivname: {name}"));
         return Path.Combine(directory, name);
     }
 
@@ -244,7 +246,7 @@ internal sealed class BackupStore(string target)
             return null;
         using var file = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         return JsonSerializer.Deserialize<BackupIndex>(file, JsonSerializerOptions.Web)
-            ?? throw new IOException("Der Sicherungsindex ist leer.");
+            ?? throw new IOException(L.T("The backup index is empty.", "Der Sicherungsindex ist leer."));
     }
 
     private static void WriteIndex(string directory, BackupIndex index)
@@ -300,7 +302,8 @@ internal sealed record BackupVersion(string Game, string Directory, string Name,
     bool Differential, bool Legacy)
 {
     public override string ToString() =>
-        $"{When.ToLocalTime():dd.MM.yyyy HH:mm:ss}  ·  {(Differential ? "Differenzsicherung" : "Vollsicherung")}";
+        $"{When.ToLocalTime().ToString("G", L.Culture)}  ·  " +
+        (Differential ? L.T("Differential backup", "Differenzsicherung") : L.T("Full backup", "Vollsicherung"));
 }
 
 internal sealed record RestorePlan(BackupVersion Version, RestoreFile[] Files, BackupPayload? Registry);
@@ -338,10 +341,10 @@ internal sealed record StoredFile(string Path, string Hash, long Size, DateTime 
 
         if (!SavePaths.WindowsFolders.TryGetValue(Anchor, out var root) || string.IsNullOrWhiteSpace(root) ||
             Relative is null || System.IO.Path.IsPathRooted(Relative))
-            throw new IOException($"Der Zielordner für diesen Spielstand ist nicht verfügbar: {Path}");
+            throw new IOException(L.T($"The destination folder for this save is unavailable: {Path}", $"Der Zielordner für diesen Spielstand ist nicht verfügbar: {Path}"));
         var target = ValidateTarget(System.IO.Path.Combine(root, Relative));
         if (!SavePaths.IsWithin(target, root))
-            throw new IOException($"Ungültiger relativer Sicherungspfad: {Relative}");
+            throw new IOException(L.T($"Invalid relative backup path: {Relative}", $"Ungültiger relativer Sicherungspfad: {Relative}"));
         return target;
     }
 
@@ -350,11 +353,11 @@ internal sealed record StoredFile(string Path, string Hash, long Size, DateTime 
         var normalized = path.Replace('/', '\\');
         if (!System.IO.Path.IsPathFullyQualified(normalized) || normalized.StartsWith(@"\\?\", StringComparison.Ordinal) ||
             normalized.StartsWith(@"\\.\", StringComparison.Ordinal))
-            throw new IOException($"Ungültiger Zielpfad: {path}");
+            throw new IOException(L.T($"Invalid destination path: {path}", $"Ungültiger Zielpfad: {path}"));
         var full = System.IO.Path.GetFullPath(normalized);
         var root = System.IO.Path.GetPathRoot(full)!;
         if (full.Length <= root.Length || full[root.Length..].Contains(':'))
-            throw new IOException($"Ungültiger Zielpfad: {path}");
+            throw new IOException(L.T($"Invalid destination path: {path}", $"Ungültiger Zielpfad: {path}"));
         return full;
     }
 }

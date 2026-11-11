@@ -11,7 +11,8 @@ internal sealed partial class GameScanner(string catalogPath)
     private Installations? cachedInstallations;
 
     public IReadOnlyList<GameSave> Scan(CustomGame[] customGames, string? backupTarget, CancellationToken token,
-        string? onlyGame = null, Installations? detected = null, bool refreshInstallations = false)
+        string? onlyGame = null, Installations? detected = null, bool refreshInstallations = false,
+        IReadOnlySet<string>? excludedGames = null)
     {
         catalog ??= ReadCatalog();
         var installations = detected ?? (refreshInstallations || cachedInstallations is null
@@ -23,12 +24,18 @@ internal sealed partial class GameScanner(string catalogPath)
         var matched = new HashSet<InstalledGame>();
         var result = new List<GameSave>();
         var custom = customGames
-            .Where(game => onlyGame is null || game.Name.Equals(onlyGame, StringComparison.OrdinalIgnoreCase))
+            .Where(game => excludedGames?.Contains(game.Name) != true &&
+                (onlyGame is null || game.Name.Equals(onlyGame, StringComparison.OrdinalIgnoreCase)))
             .ToDictionary(game => game.Name, StringComparer.OrdinalIgnoreCase);
 
         foreach (var definition in definitions)
         {
             token.ThrowIfCancellationRequested();
+            if (excludedGames?.Contains(definition.Name) == true)
+            {
+                matched.UnionWith(installations.Match(definition));
+                continue;
+            }
             var matches = installations.Match(definition);
             matched.UnionWith(matches);
             var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -54,6 +61,7 @@ internal sealed partial class GameScanner(string catalogPath)
         }
 
         var unmatched = installations.Games.Where(game => !matched.Contains(game) && game.Store != "other" &&
+                excludedGames?.Contains(game.Name) != true &&
                 (onlyGame is null || game.Name.Equals(onlyGame, StringComparison.OrdinalIgnoreCase)))
             .GroupBy(game => game.Name, StringComparer.OrdinalIgnoreCase);
         foreach (var group in unmatched)
@@ -120,7 +128,7 @@ internal sealed partial class GameScanner(string catalogPath)
         using var file = File.OpenRead(catalogPath);
         using var content = new GZipStream(file, CompressionMode.Decompress);
         return JsonSerializer.Deserialize<CatalogGame[]>(content, JsonSerializerOptions.Web)
-            ?? throw new IOException("Der Spielekatalog konnte nicht geladen werden.");
+            ?? throw new IOException(L.T("The game catalog could not be loaded.", "Der Spielekatalog konnte nicht geladen werden."));
     }
 
     private static IEnumerable<SaveEntry> ReadFiles(IEnumerable<string> paths)

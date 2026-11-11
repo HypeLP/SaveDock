@@ -6,7 +6,11 @@ namespace SaveDock;
 
 public partial class App : Application
 {
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        L.Use(AppLanguage.English, this);
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
