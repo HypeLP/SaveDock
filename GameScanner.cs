@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace SaveDock;
 
-internal sealed partial class GameScanner(string catalogPath)
+internal sealed partial class GameScanner(string? catalogPath = null)
 {
     private CatalogGame[]? catalog;
     private ILookup<string, CatalogGame>? catalogByName;
@@ -125,7 +125,10 @@ internal sealed partial class GameScanner(string catalogPath)
 
     private CatalogGame[] ReadCatalog()
     {
-        using var file = File.OpenRead(catalogPath);
+        using var file = catalogPath is null
+            ? typeof(GameScanner).Assembly.GetManifestResourceStream("SaveDock.Catalog.windows.json.gz")
+                ?? throw new IOException(L.T("The bundled game catalog is missing.", "Der mitgelieferte Spielekatalog fehlt."))
+            : File.OpenRead(catalogPath);
         using var content = new GZipStream(file, CompressionMode.Decompress);
         return JsonSerializer.Deserialize<CatalogGame[]>(content, JsonSerializerOptions.Web)
             ?? throw new IOException(L.T("The game catalog could not be loaded.", "Der Spielekatalog konnte nicht geladen werden."));

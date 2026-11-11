@@ -24,12 +24,12 @@ public partial class MainWindow : Window
     private bool updatingMode;
 
     public MainWindow() : this(
-        Path.Combine(AppContext.BaseDirectory, "Catalog", "windows.json.gz"),
+        null,
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SaveDock"))
     {
     }
 
-    internal MainWindow(string catalog, string dataDirectory)
+    internal MainWindow(string? catalog, string dataDirectory)
     {
         InitializeComponent();
         this.dataDirectory = dataDirectory;

@@ -1,6 +1,6 @@
 # SaveDock
 
-SaveDock finds, backs up, and restores local PC game saves on Windows. The self-contained Windows x64 build at `dist\SaveDock.exe` includes the .NET runtime and an offline game catalog.
+SaveDock finds, backs up, and restores local PC game saves on Windows. The Windows x64 release at `dist\SaveDock.exe` is a single compressed executable with the .NET runtime and offline game catalog built in. The runtime extracts bundled native libraries to a temporary directory when needed.
 
 ## Getting started
 
@@ -35,5 +35,7 @@ Backups from the first prototype with `mapping.yaml` remain readable and keep th
 dotnet run --project .\SaveDock.csproj
 dotnet publish .\SaveDock.csproj -c Release -r win-x64 --self-contained true -o .\dist
 ```
+
+Publish to an empty folder when replacing an earlier multi-file build so the old DLLs and debug symbols are kept out of the release directory.
 
 The bundled [catalog snapshot](https://github.com/mtkennerly/ludusavi-manifest/tree/ff0faa56840b0081c11a5b2c28f44bd478b29faf) comes from the Ludusavi Manifest. Its license is in `Catalog`. The optional `Catalog/build-catalog.py` script uses PyYAML to rebuild the catalog from a manifest YAML file.

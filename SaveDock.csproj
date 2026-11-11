@@ -8,13 +8,27 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);dist/**</DefaultItemExcludes>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' and '$(Configuration)' == 'Release'">
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.6" />
     <PackageReference Include="Avalonia.Themes.Simple" Version="12.1.6" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.5" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
-    <None Update="Catalog/windows.json.gz;Catalog/*LICENSE.txt"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Catalog/windows.json.gz" LogicalName="SaveDock.Catalog.windows.json.gz" />
+    <EmbeddedResource Include="Catalog/ludusavi-manifest-LICENSE.txt" LogicalName="SaveDock.Catalog.LICENSE.txt" />
   </ItemGroup>
+
+  <Target Name="RemovePortableDebugSymbols" AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
 </Project>
