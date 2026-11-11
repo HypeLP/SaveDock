@@ -1,0 +1,227 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:SaveDock"
+        x:Class="SaveDock.MainWindow"
+        Title="SaveDock"
+        Width="1180" Height="740" MinWidth="940" MinHeight="540"
+        WindowStartupLocation="CenterScreen"
+        Background="#10131B" Foreground="#EDF1FA" FontFamily="fonts:Inter#Inter">
+  <Window.Resources>
+    <SolidColorBrush x:Key="Panel" Color="#181D29" />
+    <SolidColorBrush x:Key="Line" Color="#2A3142" />
+    <SolidColorBrush x:Key="Muted" Color="#A5B0C4" />
+    <SolidColorBrush x:Key="Accent" Color="#85E8CA" />
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+    </Style>
+    <Style Selector="Button.action">
+      <Setter Property="Background" Value="#252D3E" />
+      <Setter Property="Foreground" Value="#EDF1FA" />
+      <Setter Property="BorderBrush" Value="#354058" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,9" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.action:pointerover">
+      <Setter Property="Background" Value="#323D51" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource Accent}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+      <Setter Property="Foreground" Value="#10251E" />
+    </Style>
+    <Style Selector="Button.primary:pointerover">
+      <Setter Property="Background" Value="#A4F4DD" />
+    </Style>
+    <Style Selector="Button.action:disabled">
+      <Setter Property="Opacity" Value="0.48" />
+    </Style>
+    <Style Selector="Button.compact">
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="MinHeight" Value="31" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="ListBox.gameList">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="ListBox.gameList ListBoxItem">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="56" />
+    </Style>
+    <Style Selector="ListBox.gameList ListBoxItem:pointerover">
+      <Setter Property="Background" Value="#20283A" />
+    </Style>
+    <Style Selector="ListBox.gameList ListBoxItem:selected">
+      <Setter Property="Background" Value="#26364A" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="28,23,28,18">
+    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,20">
+      <StackPanel Orientation="Horizontal" Spacing="11">
+        <Border Width="36" Height="36" Background="{StaticResource Accent}" CornerRadius="9">
+          <PathIcon Width="19" Height="19" Foreground="#10251E"
+                    Data="M 12,2 L 21,6 L 21,12 C 21,16.8 17.2,20.7 12,22 C 6.8,20.7 3,16.8 3,12 L 3,6 Z M 11,7 L 11,12 L 8.5,9.5 L 7,11 L 12,16 L 17,11 L 15.5,9.5 L 13,12 L 13,7 Z" />
+        </Border>
+        <TextBlock Text="SaveDock" FontWeight="Bold" FontSize="19" VerticalAlignment="Center" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+        <Button x:Name="SettingsButton" Classes="action" Click="SettingsClicked" Content="Einstellungen" />
+        <Button x:Name="ScanButton" Classes="action" Click="ScanClicked" Content="Erneut suchen" />
+        <Button x:Name="BackupButton" Classes="action primary" Click="BackupClicked"
+                Content="Alle sichern" IsEnabled="False" />
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="1" Classes="panel" Margin="0,0,0,16" Padding="22,17">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+          <GradientStop Offset="0" Color="#1D2937" />
+          <GradientStop Offset="1" Color="#1A202E" />
+        </LinearGradientBrush>
+      </Border.Background>
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="4" VerticalAlignment="Center">
+          <TextBlock Text="Deine Spielstände" FontSize="28" FontWeight="Bold" />
+          <TextBlock x:Name="OverviewText" Text="Lokale Spielstände werden gesucht." Classes="muted"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="22" VerticalAlignment="Center" Margin="12,0,0,0">
+          <StackPanel MinWidth="55" Spacing="2">
+            <TextBlock x:Name="GameCount" Text="–" FontWeight="SemiBold" FontSize="22" />
+            <TextBlock Text="Spiele" Classes="caption" />
+          </StackPanel>
+          <StackPanel MinWidth="64" Spacing="2">
+            <TextBlock x:Name="EntryCount" Text="–" FontWeight="SemiBold" FontSize="22" />
+            <TextBlock Text="Einträge" Classes="caption" />
+          </StackPanel>
+          <StackPanel MinWidth="72" Spacing="2">
+            <TextBlock x:Name="TotalSize" Text="–" FontWeight="SemiBold" FontSize="22" />
+            <TextBlock Text="Dateigröße" Classes="caption" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,16,295">
+      <Border Classes="panel">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <Grid ColumnDefinitions="*,150,Auto" ColumnSpacing="8" Margin="15,13">
+            <TextBlock Text="Gefundene Spiele" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBox x:Name="SearchBox" Grid.Column="1" PlaceholderText="Spiel oder Launcher" TextChanged="SearchChanged"
+                     AutomationProperties.Name="Nach Spiel oder Launcher filtern" Background="#121723" BorderBrush="{StaticResource Line}"
+                     Foreground="#EDF1FA" PlaceholderForeground="{StaticResource Muted}" CornerRadius="7" Padding="9,6" />
+            <Button x:Name="AddGameButton" Grid.Column="2" Classes="action compact" Content="+ Spiel hinzufügen"
+                    Click="AddGameClicked" />
+          </Grid>
+          <Border Grid.Row="1" Background="{StaticResource Line}" Height="1" />
+          <Grid Grid.Row="2">
+            <ListBox x:Name="GameList" Classes="gameList" SelectionChanged="GameSelected"
+                     AutomationProperties.Name="Gefundene Spiele">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:GameRow">
+                  <Grid ColumnDefinitions="38,*,Auto,Auto,Auto" ColumnSpacing="8">
+                    <Border Width="38" Height="38" CornerRadius="8" Background="#293A4E">
+                      <Grid>
+                        <TextBlock Text="{Binding Monogram}" Foreground="{StaticResource Accent}" FontWeight="Bold"
+                                   IsVisible="{Binding HasNoIcon}" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Image Source="{Binding Icon}" Width="31" Height="31" Stretch="Uniform"
+                               AutomationProperties.AccessibilityView="Raw" />
+                      </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Text="{Binding EntrySummary}" Classes="caption" TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{Binding EntrySummary}" />
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="action compact" Content="Backup" IsEnabled="{Binding CanBackup}"
+                            Click="GameBackupClicked" />
+                    <Button Grid.Column="3" Classes="action compact" Content="Laden" IsEnabled="{Binding CanLoad}"
+                            Click="GameLoadClicked" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7"
+                        IsHitTestVisible="False" Margin="20">
+              <TextBlock x:Name="EmptyTitle" Text="Spielstände werden gesucht" FontWeight="SemiBold" FontSize="16"
+                         TextAlignment="Center" TextWrapping="Wrap" />
+              <TextBlock x:Name="EmptyMessage" Text="Der erste Scan kann einen Moment dauern."
+                         Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Column="2" RowDefinitions="Auto,12,*">
+        <Border Classes="panel" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Sicherungsziel" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock x:Name="TargetText" Text="Noch kein Ordner ausgewählt" Classes="muted"
+                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Text, ElementName=TargetText}" />
+            <Button x:Name="TargetButton" Classes="action" Click="TargetClicked" Content="Ordner auswählen"
+                    HorizontalAlignment="Stretch" />
+            <TextBlock Text="Sicherungsart" Classes="caption" Margin="0,3,0,0" />
+            <ComboBox x:Name="BackupModeBox" HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="Sicherungsart" SelectionChanged="BackupModeChanged" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Classes="panel" Padding="14">
+          <Grid RowDefinitions="Auto,Auto,Auto,*">
+            <TextBlock Text="Spielstandpfade" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock x:Name="DetailTitle" Grid.Row="1" Text="Wähle ein Spiel aus." Classes="muted"
+                       Margin="0,5,0,8" TextTrimming="CharacterEllipsis" />
+            <Button x:Name="EditGameButton" Grid.Row="2" Classes="action compact" Content="Eigene Pfade bearbeiten"
+                    IsVisible="False" Click="EditGameClicked" Margin="0,0,0,8" />
+            <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl x:Name="DetailList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:SaveEntry">
+                    <Border Background="#131824" CornerRadius="6" Padding="9,6" Margin="0,0,0,5">
+                      <StackPanel Spacing="3">
+                        <SelectableTextBlock Text="{Binding Path}" FontSize="12" TextWrapping="Wrap"
+                                             ToolTip.Tip="{Binding Path}" />
+                        <TextBlock Text="{Binding Label}" Classes="caption" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <Grid Grid.Row="3" RowDefinitions="Auto,Auto" Margin="0,10,0,0">
+      <ProgressBar x:Name="Activity" IsIndeterminate="True" Height="3" IsVisible="False"
+                   Foreground="{StaticResource Accent}" />
+      <TextBlock x:Name="StatusText" Grid.Row="1" Classes="caption" Margin="0,6,0,0"
+                 Text="Bereit" TextTrimming="CharacterEllipsis"
+                 ToolTip.Tip="{Binding Text, ElementName=StatusText}" />
+    </Grid>
+  </Grid>
+</Window>
